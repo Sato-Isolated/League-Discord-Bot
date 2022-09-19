@@ -1,6 +1,7 @@
 ﻿using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace League_Discord_Bot;
@@ -8,6 +9,7 @@ namespace League_Discord_Bot;
 internal class Program
 {
     private readonly IServiceProvider _services;
+    private readonly IConfiguration _configuration;
 
     private readonly DiscordSocketConfig _socketConfig = new()
     {
@@ -18,7 +20,13 @@ internal class Program
 
     private Program()
     {
+        _configuration = new ConfigurationBuilder()
+            .AddEnvironmentVariables("DC_")
+            .AddJsonFile("appsettings.json", true)
+            .Build();
+
         _services = new ServiceCollection()
+            .AddSingleton(_configuration)
             .AddSingleton(_socketConfig)
             .AddSingleton<DiscordSocketClient>()
             .AddSingleton(x => new InteractionService(x.GetRequiredService<DiscordSocketClient>()))
