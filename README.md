@@ -16,5 +16,7 @@ but it will send the command a few seconds later
 
 
 for the bot to work you must put your token for the bot discord in program.cs 
+
 your Server ID in InteractionHandler.cs
+
 and your riot api key in mmrmodule.cs
