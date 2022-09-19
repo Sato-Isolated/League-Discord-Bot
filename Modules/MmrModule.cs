@@ -259,7 +259,7 @@ public class MmrModule : InteractionModuleBase<SocketInteractionContext>
             {
                 var pe = summoners.SummonerName;
                 var tempJson = await Downloadstring(pe);
-                var welcome = JsonMMR.Mode.FromJson(tempJson);
+                var welcome = JsonMmr.Mode.FromJson(tempJson);
 
                 rankAverage.Add(welcome.Ranked?.ClosestRank);
                 summonersList.Add(summoners.SummonerName);
@@ -328,7 +328,7 @@ public class MmrModule : InteractionModuleBase<SocketInteractionContext>
         {
             var pe = summoners.SummonerName;
             var tempJson = await Downloadstring(pe);
-            var welcome = JsonMMR.Mode.FromJson(tempJson);
+            var welcome = JsonMmr.Mode.FromJson(tempJson);
 
             rankAverage.Add(welcome.Aram?.ClosestRank);
             summonersList.Add(summoners.SummonerName);
