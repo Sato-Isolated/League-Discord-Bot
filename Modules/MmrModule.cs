@@ -236,15 +236,15 @@ public class MmrModule : InteractionModuleBase<SocketInteractionContext>
         }
     }
 
-    [SlashCommand("checkmmr", "Check les stats de la partie")]
-    public async Task CheckMmr(string name, string mode)
+   [SlashCommand("checkranked", "Check les stats de la partie")]
+    public async Task CheckMMR(string name)
     {
         var client = new HttpClient();
         client.DefaultRequestHeaders.Add("user-agent",
             "Csharp SeraphBot v1.0.3");
         var myJson =
             client.GetStringAsync(
-                $"https://euw1.api.riotgames.com/tft/summoner/v1/summoners/by-name/{name}?api_key={Api}");
+                $"https://euw1.api.riotgames.com/lol/summoner/v4/summoners/by-name/{name}?api_key={Api}");
         var summs = SummonerByName.FromJson(await myJson);
         var leagueentries =
             client.GetStringAsync(
@@ -252,31 +252,94 @@ public class MmrModule : InteractionModuleBase<SocketInteractionContext>
 
         var league = ObserversMatch.FromJson(await leagueentries);
         var parti = league.Participants;
-        var summonersList = new List<string?>();
+        var summonersList = new List<string>();
         var mmrAvergare = new List<string>();
-        var rankAverage = new List<string?>();
-
-
-        if (parti != null)
+        var rankAverage = new List<string>();
             foreach (var summoners in parti)
             {
                 var pe = summoners.SummonerName;
                 var tempJson = await Downloadstring(pe);
-                var welcome = JsonMmr.Mode.FromJson(tempJson);
+                var welcome = JsonMMR.Mode.FromJson(tempJson);
 
                 rankAverage.Add(welcome.Ranked?.ClosestRank);
                 summonersList.Add(summoners.SummonerName);
-                dynamic p = 0;
-                if (mode == "aram")
-                    p = welcome.Aram.Avg;
-                if (mode == "ranked")
-                    p = welcome.Ranked.Avg;
-                if (welcome.Aram?.Avg is null or 0)
-                    p = 0;
+
+                var p = welcome.Ranked.Avg;
+
                 if (welcome.Ranked?.Avg is null or 0)
                     p = 0;
                 mmrAvergare.Add(p.ToString());
             }
+       
+
+            var embed = new EmbedBuilder { Title = $"{summs.Name}'s Game Stats", Color = Color.Blue };
+            var mmravg = long.Parse(mmrAvergare[0]);
+            var mmravg1 = long.Parse(mmrAvergare[1]);
+            var mmravg2 = long.Parse(mmrAvergare[2]);
+            var mmravg3 = long.Parse(mmrAvergare[3]);
+            var mmravg4 = long.Parse(mmrAvergare[4]);
+            var mmravg5 = long.Parse(mmrAvergare[5]);
+            var mmravg6 = long.Parse(mmrAvergare[6]);
+            var mmravg7 = long.Parse(mmrAvergare[7]);
+            var mmravg8 = long.Parse(mmrAvergare[8]);
+            var mmravg9 = long.Parse(mmrAvergare[9]);
+
+
+            var mmrteam1 = (mmravg + mmravg1 + mmravg2 + mmravg3 + mmravg4) / 5;
+
+            var mmrteam2 = (mmravg5 + mmravg6 + mmravg7 + mmravg8 + mmravg9) / 5;
+
+            embed.AddField("Team 1", $"{summonersList[0]} : {mmrAvergare[0]} {rankAverage[0]}" +
+                                     $"\n{summonersList[1]} : {mmrAvergare[1]} {rankAverage[1]}" +
+                                     $"\n{summonersList[2]} : {mmrAvergare[2]} {rankAverage[2]}" +
+                                     $"\n{summonersList[3]} : {mmrAvergare[3]} {rankAverage[3]}" +
+                                     $"\n{summonersList[4]} : {mmrAvergare[4]} {rankAverage[4]}" +
+                                     $"\n\nMMR Of the team : {mmrteam1}"
+                , true).AddField("Team 2", $"\n{summonersList[5]} : {mmrAvergare[5]} {rankAverage[5]}" +
+                                           $"\n{summonersList[6]} : {mmrAvergare[6]} {rankAverage[6]}" +
+                                           $"\n{summonersList[7]} : {mmrAvergare[7]} {rankAverage[7]}" +
+                                           $"\n{summonersList[8]} : {mmrAvergare[8]} {rankAverage[8]}" +
+                                           $"\n{summonersList[9]} : {mmrAvergare[9]} {rankAverage[9]}" +
+                                           $"\n\nMMR Of the team : {mmrteam2}", true);
+
+            await ReplyAsync(embed: embed.Build());
+        }
+
+    [SlashCommand("checkaram", "Check les stats de la partie")]
+    public async Task CheckMMRAram(string name)
+    {
+        var client = new HttpClient();
+        client.DefaultRequestHeaders.Add("user-agent",
+            "Csharp SeraphBot v1.0.3");
+        var myJson =
+            client.GetStringAsync(
+                $"https://euw1.api.riotgames.com/lol/summoner/v4/summoners/by-name/{name}?api_key={Api}");
+        var summs = SummonerByName.FromJson(await myJson);
+        var leagueentries =
+            client.GetStringAsync(
+                $"https://euw1.api.riotgames.com/lol/spectator/v4/active-games/by-summoner/{summs.Id}?api_key={Api}");
+
+        var league = ObserversMatch.FromJson(await leagueentries);
+        var parti = league.Participants;
+        var summonersList = new List<string>();
+        var mmrAvergare = new List<string>();
+        var rankAverage = new List<string>();
+        foreach (var summoners in parti)
+        {
+            var pe = summoners.SummonerName;
+            var tempJson = await Downloadstring(pe);
+            var welcome = JsonMMR.Mode.FromJson(tempJson);
+
+            rankAverage.Add(welcome.Aram?.ClosestRank);
+            summonersList.Add(summoners.SummonerName);
+
+            var p = welcome.Aram.Avg;
+
+            if (welcome.Aram?.Avg is null or 0)
+                p = 0;
+            mmrAvergare.Add(p.ToString());
+        }
+
 
         var embed = new EmbedBuilder { Title = $"{summs.Name}'s Game Stats", Color = Color.Blue };
         var mmravg = long.Parse(mmrAvergare[0]);
