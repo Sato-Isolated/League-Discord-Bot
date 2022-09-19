@@ -6,6 +6,10 @@ The code is done a bit on the fly if you want to improve it or add functions you
 When you do a long function like "/checkmmr name mode" it will tell you that the application is not responding on discord
 but it will send the command a few seconds later 
 
+sometimes I get this error for the /checkmmr I don't know why :shrug: 
+
+"System.Net.Http.HttpRequestException: Response status code does not indicate success: 404 (Not Found)."
+
 (Aram MMR from https://euw.whatismymmr.com/)
 
 ![image](https://user-images.githubusercontent.com/12450341/191113697-4d5482e6-fcb7-480a-95d5-61f09041af49.png)
