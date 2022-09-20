@@ -18,6 +18,10 @@ sometimes I get this error for the /checkmmr I don't know why :shrug:
 
 ![image](https://user-images.githubusercontent.com/12450341/191114426-d8630038-b271-49e6-b210-a3d959161f07.png)
 
+(If MMR is available)
+
+![image](https://user-images.githubusercontent.com/12450341/191180433-d15e379b-f8e7-461f-8a0e-8f429d28aaf1.png)
+ 
 
 for the bot to work you must put your token for the bot discord in program.cs 
 
