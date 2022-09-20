@@ -125,6 +125,10 @@ public class MmrModule : InteractionModuleBase<SocketInteractionContext>
 
             var league = LeagueEntries.FromJson(leagueentries);
 
+            var mmr = Downloadstring(text);
+
+            var rankedmmr = JsonMmr.Mode.FromJson(await mmr);
+
             var solo = league.Single(x => x.QueueType == "RANKED_SOLO_5x5");
 
             var numOfGames = solo.Wins + solo.Losses;
@@ -150,15 +154,21 @@ public class MmrModule : InteractionModuleBase<SocketInteractionContext>
                 Color = Color.Blue,
                 ThumbnailUrl = rank
             };
-            // Or with methods
-            embed.AddField("Rank", $"{solo.Tier} {solo.Rank}\n {solo.LeaguePoints} LP", true)
+
+            dynamic mmrnumber = rankedmmr.Ranked?.Avg;
+            dynamic closestrank = rankedmmr.Ranked?.ClosestRank;
+
+            mmrnumber = mmrnumber is null ? string.Empty : $"{rankedmmr.Ranked?.Avg} MMR";
+            closestrank = closestrank is null ? string.Empty : $"Equivalent Of {rankedmmr.Ranked?.ClosestRank}";
+
+            embed.AddField("Rank", $"{solo.Tier} {solo.Rank} {solo.LeaguePoints} LP \n{mmrnumber}\n{closestrank}", true)
                 .AddField("Stats", $"**Wins:** {solo.Wins}\n**Losses**: {solo.Losses}\n**Win Rate:** {winRate}%", true);
 
             await RespondAsync(embed: embed.Build());
         }
         catch (Exception e)
         {
-            await RespondAsync("There is no data for this player");
+            await RespondAsync(e.ToString(), ephemeral:true);
         }
     }
 
