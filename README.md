@@ -3,7 +3,7 @@ A SlashCommand Bot Discord to show the mmr of the game or of a player using riot
 
 The code is done a bit on the fly if you want to improve it or add functions you can make a PR
 
-if you have an idea for an order make an issue and I will see what I can do
+if you have an idea for a function make an issue and I will see what I can do
 
 When you do a long function like "/checkmmr name mode" it will tell you that the application is not responding on discord
 but it will send the command a few seconds later 
