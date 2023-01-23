@@ -1,7 +1,7 @@
 # League-Discord-Bot
 
 About
-A SlashCommand Bot Discord to show the details of a game using [Camille API](https://github.com/MingweiSamuel/Camille)
+A SlashCommand Bot Discord to show the details of a game using [Camille API](https://github.com/MingweiSamuel/Camille) and [Discord.NET](https://github.com/discord-net/Discord.Net)
 
 The code is done a bit on the fly if you want to improve it or add functions you can make a PR
 
