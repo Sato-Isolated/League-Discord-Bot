@@ -34,11 +34,11 @@ public class LeagueModule : InteractionModuleBase<SocketInteractionContext>
 
 
     [SlashCommand("rank", "Check les stats ranked")]
-    public async Task RankCommand(string text)
+    public async Task RankCommand(string name)
     {
         try
         {
-            var summs = await Api.SummonerV4().GetBySummonerNameAsync(PlatformRoute.EUW1, text);
+            var summs = await Api.SummonerV4().GetBySummonerNameAsync(PlatformRoute.EUW1, name);
             var leagueentries = await Api.LeagueV4().GetLeagueEntriesForSummonerAsync(PlatformRoute.EUW1, summs.Id);
             var solo = leagueentries.Single(x => x.QueueType == QueueType.RANKED_SOLO_5x5);
             var numOfGames = solo.Wins + solo.Losses;
@@ -64,9 +64,9 @@ public class LeagueModule : InteractionModuleBase<SocketInteractionContext>
 
 
     [SlashCommand("lg", "Check les stats de la game en cours")]
-    public async Task LiveGame(string text)
+    public async Task LiveGame(string name)
     {
-        var summs = await Api.SummonerV4().GetBySummonerNameAsync(PlatformRoute.EUW1, text);
+        var summs = await Api.SummonerV4().GetBySummonerNameAsync(PlatformRoute.EUW1, name);
         var spect = await Api.SpectatorV4().GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, summs.Id);
 
         var embed = new EmbedBuilder
@@ -168,17 +168,17 @@ public class LeagueModule : InteractionModuleBase<SocketInteractionContext>
                                 $"{summs.Name} est actuellement {RefreshedLeaguePoint.Tier} {RefreshedLeaguePoint.Rank} {leaguePoints} LP ({lea})"
                         };
 
-                        double kda = (kill + assist) / death;
+                        var kda = (kill + assist) / (double)death;
                         embed.AddField("Kill", kill, true)
                             .AddField("Death", death, true)
                             .AddField("Assist", assist, true)
-                            .AddField("KDA", kda, true)
+                            .AddField("KDA", kda.ToString("F2"), true)
                             .AddField("Cs", cs, true)
                             .AddField("Gold", gold, true)
                             .AddField("Game Time", gametime, true)
                             .AddField("Death Timer",
                                 deathtimer.Minutes + " minutes " + deathtimer.Seconds + " secondes", true)
-                            .AddField("DPM", dpm, true)
+                            .AddField("DPM", dpm.ToString("F2"), true)
                             .AddField("Wards", wards, true);
 
                         await ReplyAsync(embed: embed.Build());
