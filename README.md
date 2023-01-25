@@ -23,4 +23,6 @@ for the bot to work you must put your token for the bot discord in program.cs
 
 your Server ID in InteractionHandler.cs
 
-and your riot api key in LeagueModule.cs
+your webhook in LeagueMethod.cs
+
+and your riot api key in LeagueCommand.cs
