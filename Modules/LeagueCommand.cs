@@ -1,15 +1,17 @@
+using System;
 using System.Text;
 using Camille.Enums;
 using Camille.RiotGames;
 using Camille.RiotGames.Enums;
 using Discord;
 using Discord.Interactions;
+using Discord.Webhook;
 
 namespace League_Discord_Bot.Modules;
 
-public class LeagueModule : InteractionModuleBase<SocketInteractionContext>
+public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
 {
-    private static readonly Dictionary<Tier, string> RankEmblems = new()
+    public static readonly Dictionary<Tier, string> RankEmblems = new()
     {
         { Tier.IRON, "https://cdn.discordapp.com/attachments/787493493927968790/791377379497869353/Emblem_Iron.png" },
         { Tier.BRONZE, "https://cdn.discordapp.com/attachments/787493493927968790/791377369566281748/Emblem_Bronze.png" },
@@ -21,11 +23,11 @@ public class LeagueModule : InteractionModuleBase<SocketInteractionContext>
         { Tier.GRANDMASTER, "https://cdn.discordapp.com/attachments/787493493927968790/791377379607445564/Emblem_Grandmaster.png" },
         { Tier.CHALLENGER, "https://cdn.discordapp.com/attachments/787493493927968790/791377373044015154/Emblem_Challenger.png" }
     };
-    private static readonly RiotGamesApi Api = RiotGamesApi.NewInstance("RGAPI-0000000000-000000-000000-000000-000000000000");//https://developer.riotgames.com
+    public static readonly RiotGamesApi Api = RiotGamesApi.NewInstance("RGAPI-0000000000-000000-000000-000000-000000000000");//https://developer.riotgames.com
 
     private InteractionHandler _handler;
     
-    public LeagueModule(InteractionHandler handler)
+    public LeagueCommand(InteractionHandler handler)
     {
         _handler = handler;
     }
@@ -97,97 +99,31 @@ public class LeagueModule : InteractionModuleBase<SocketInteractionContext>
         await RespondAsync(embed: embed.Build());
     }
 
-    static double CalculateDifference(double num1, double num2) => Math.Abs(num1 - num2);
+    public static double CalculateDifference(double num1, double num2) => Math.Abs(num1 - num2);
 
     [SlashCommand("stalk", "Stalk une personne")]
     public async Task Stalking(string name)
     {
         try
         {
-            var summs = await Api.SummonerV4().GetBySummonerNameAsync(PlatformRoute.EUW1, name);
-            var spect = await Api.SpectatorV4().GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, summs.Id);
-            var leagueentries = await Api.LeagueV4().GetLeagueEntriesForSummonerAsync(PlatformRoute.EUW1, summs.Id);
-            var LeagueEntry = leagueentries.Single(x => x.QueueType == QueueType.RANKED_SOLO_5x5);
-            var lp = LeagueEntry.LeaguePoints;
+            LeagueMethod.TempNameRanked = name;
+            await RespondAsync("Stalk", ephemeral: true);
+            await LeagueMethod.StalkingRanked(name);
 
-            var rank = RankEmblems.GetValueOrDefault(LeagueEntry.Tier.Value, "Unranked");
-            await RespondAsync($"Lancement du stalking de {name}", ephemeral: true);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
+    }
 
-
-            while (true)
-            {
-                if (spect != null)
-                {
-                    var match = await Api.MatchV5().GetMatchAsync(RegionalRoute.EUROPE, "EUW1_" + spect.GameId);
-                    if (match is not null)
-                    {
-                        var participant = match.Info.Participants.Single(x => x.SummonerName == name);
-                        var winloose = participant.Win;
-                        var cs = participant.TotalMinionsKilled;
-                        var gold = participant.GoldEarned;
-                        var kill = participant.Kills;
-                        var death = participant.Deaths;
-                        var assist = participant.Assists;
-                        var role = participant.Role;
-                        var champ = participant.ChampionName;
-                        var damage = participant.TotalDamageDealtToChampions;
-                        var wards = participant.WardsPlaced;
-                        var duration = TimeSpan.FromSeconds(match.Info.GameDuration);
-                        var dpm = (double)damage / duration.Minutes;
-                        var gametime = duration.Minutes + " minutes " + duration.Seconds + " secondes";
-                        var resultat = winloose ? "gagner" : "perdre";
-                        var deathtimer = TimeSpan.FromSeconds(participant.TotalTimeSpentDead);
-                        Color color;
-                        var LpAfterMatch =
-                            await Api.LeagueV4().GetLeagueEntriesForSummonerAsync(PlatformRoute.EUW1, summs.Id);
-                        var RefreshedLeaguePoint = LpAfterMatch.Single(x => x.QueueType == QueueType.RANKED_SOLO_5x5);
-                        var leaguePoints = RefreshedLeaguePoint.LeaguePoints;
-
-                        Console.WriteLine("leaguePoints " + leaguePoints);
-                        string lea;
-                        if (winloose)
-                        {
-                            color = Color.Green;
-                            lea = $"+ {CalculateDifference(lp, leaguePoints)}";
-                        }
-                        else
-                        {
-                            color = Color.Red;
-                            lea = $"- {CalculateDifference(lp, leaguePoints)}";
-                        }
-
-                        if (role == "CARRY") role = "ADC";
-
-                        var embed = new EmbedBuilder
-                        {
-                            Title =
-                                $"{summs.Name} vient de {resultat} une partie en {role}{Environment.NewLine}avec {champ}",
-                            Color = color,
-                            ThumbnailUrl = rank,
-                            Description =
-                                $"{summs.Name} est actuellement {RefreshedLeaguePoint.Tier} {RefreshedLeaguePoint.Rank} {leaguePoints} LP ({lea})"
-                        };
-
-                        var kda = (kill + assist) / (double)death;
-                        embed.AddField("Kill", kill, true)
-                            .AddField("Death", death, true)
-                            .AddField("Assist", assist, true)
-                            .AddField("KDA", kda.ToString("F2"), true)
-                            .AddField("Cs", cs, true)
-                            .AddField("Gold", gold, true)
-                            .AddField("Game Time", gametime, true)
-                            .AddField("Death Timer",
-                                deathtimer.Minutes + " minutes " + deathtimer.Seconds + " secondes", true)
-                            .AddField("DPM", dpm.ToString("F2"), true)
-                            .AddField("Wards", wards, true);
-
-                        await ReplyAsync(embed: embed.Build());
-                        break;
-                    }
-                }
-
-                Thread.Sleep(15000);
-            }
+    [SlashCommand("ssr", "Arrete le stalking d'une personne")]
+    public async Task StopStalkingRanked()
+    {
+        try
+        {
+            LeagueMethod.RecursiveRanked = true;
+            await RespondAsync("Stop Stalk", ephemeral: true);
         }
         catch (Exception ex)
         {
