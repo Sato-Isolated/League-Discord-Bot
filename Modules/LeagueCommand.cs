@@ -5,7 +5,6 @@ using Camille.RiotGames;
 using Camille.RiotGames.Enums;
 using Discord;
 using Discord.Interactions;
-using Discord.Webhook;
 
 namespace League_Discord_Bot.Modules;
 
@@ -130,6 +129,36 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
             Console.WriteLine(ex.ToString());
         }
     }
+
+    [SlashCommand("stalkaram", "Stalk une personne")]
+    public async Task StalkingAram(string name)
+    {
+        try
+        {
+            LeagueMethod.TempNameAram = name;
+            await RespondAsync("Stalk", ephemeral: true);
+            await LeagueMethod.StalkingAram(name);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
+    }
+
+    [SlashCommand("ssa", "Arrete le stalking d'une personne")]
+    public async Task StopStalkingAram()
+    {
+        try
+        {
+            LeagueMethod.RecursiveAram = true;
+            await RespondAsync("Stop Stalk", ephemeral: true);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
+    }
+
 
     public enum ChampEnumName
     {
