@@ -324,5 +324,6 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
         Zilean = 26,
         Zoe = 142,
         Zyra = 143,
+        Milio = 902
     }
 }
