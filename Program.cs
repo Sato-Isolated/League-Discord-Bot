@@ -8,8 +8,8 @@ namespace League_Discord_Bot;
 
 internal class Program
 {
-    private readonly IServiceProvider _services;
     private readonly IConfiguration _configuration;
+    private readonly IServiceProvider _services;
 
     private readonly DiscordSocketConfig _socketConfig = new()
     {

@@ -1,4 +1,3 @@
-using System;
 using System.Text;
 using Camille.Enums;
 using Camille.RiotGames;
@@ -10,156 +9,6 @@ namespace League_Discord_Bot.Modules;
 
 public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
 {
-    public static readonly Dictionary<Tier, string> RankEmblems = new()
-    {
-        { Tier.IRON, "https://cdn.discordapp.com/attachments/787493493927968790/791377379497869353/Emblem_Iron.png" },
-        { Tier.BRONZE, "https://cdn.discordapp.com/attachments/787493493927968790/791377369566281748/Emblem_Bronze.png" },
-        { Tier.SILVER, "https://cdn.discordapp.com/attachments/787493493927968790/791376720967368724/Emblem_Silver.png" },
-        { Tier.GOLD, "https://cdn.discordapp.com/attachments/787493493927968790/791377378962047036/Emblem_Gold.png" },
-        { Tier.PLATINUM, "https://cdn.discordapp.com/attachments/787493493927968790/791377382132547584/Emblem_Platinum.png" },
-        { Tier.DIAMOND, "https://cdn.discordapp.com/attachments/787493493927968790/791377375622725652/Emblem_Diamond.png" },
-        { Tier.MASTER, "https://cdn.discordapp.com/attachments/787493493927968790/791377381713248317/Emblem_Master.png" },
-        { Tier.GRANDMASTER, "https://cdn.discordapp.com/attachments/787493493927968790/791377379607445564/Emblem_Grandmaster.png" },
-        { Tier.CHALLENGER, "https://cdn.discordapp.com/attachments/787493493927968790/791377373044015154/Emblem_Challenger.png" }
-    };
-    public static readonly RiotGamesApi Api = RiotGamesApi.NewInstance("RGAPI-0000000000-000000-000000-000000-000000000000");//https://developer.riotgames.com
-
-    private InteractionHandler _handler;
-    
-    public LeagueCommand(InteractionHandler handler)
-    {
-        _handler = handler;
-    }
-    
-    public InteractionService Commands { get; set; }
-
-
-    [SlashCommand("rank", "Check les stats ranked")]
-    public async Task RankCommand(string name)
-    {
-        try
-        {
-            var summs = await Api.SummonerV4().GetBySummonerNameAsync(PlatformRoute.EUW1, name);
-            var leagueentries = await Api.LeagueV4().GetLeagueEntriesForSummonerAsync(PlatformRoute.EUW1, summs.Id);
-            var solo = leagueentries.Single(x => x.QueueType == QueueType.RANKED_SOLO_5x5);
-            var numOfGames = solo.Wins + solo.Losses;
-            var winRate = solo.Wins / (float)numOfGames * 100;
-            var rank = RankEmblems.GetValueOrDefault(solo.Tier.Value, "Unranked");
-
-            var embed = new EmbedBuilder
-            {
-                Title = $"{summs.Name}'s Ranked Stats",
-                Color = Color.Blue,
-                ThumbnailUrl = rank
-            };
-            embed.AddField("Rank", $"{solo.Tier} {solo.Rank}\n {solo.LeaguePoints} LP", true)
-                .AddField("Stats", $"**Wins:** {solo.Wins}\n**Losses**: {solo.Losses}\n**Win Rate:** {winRate}%", true);
-
-            await RespondAsync(embed: embed.Build());
-        }
-        catch (Exception)
-        {
-            await RespondAsync("Le joueur n'a pas fait de ranked", ephemeral: true);
-        }
-    }
-
-
-    [SlashCommand("lg", "Check les stats de la game en cours")]
-    public async Task LiveGame(string name)
-    {
-        var summs = await Api.SummonerV4().GetBySummonerNameAsync(PlatformRoute.EUW1, name);
-        var spect = await Api.SpectatorV4().GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, summs.Id);
-
-        var embed = new EmbedBuilder
-        {
-            Title = $"{summs.Name}'s Live Game",
-            Color = Color.Blue
-        };
-
-        var playerteam1 = new StringBuilder();
-        var playerteam2 = new StringBuilder();
-        string Gamemode = null;
-        if (spect.GameMode is GameMode.ARAM or GameMode.CLASSIC)
-        {
-            Gamemode = spect.GameMode.ToString();
-            foreach (var sp in spect.Participants)
-
-                if (sp.TeamId == Team.Blue)
-                    playerteam1.AppendLine(sp.SummonerName + " " + (ChampEnumName)sp.ChampionId);
-
-                else if (sp.TeamId == Team.Red)
-                    playerteam2.AppendLine(sp.SummonerName + " " + (ChampEnumName)sp.ChampionId);
-        }
-
-        embed.AddField("GameMode", Gamemode)
-            .AddField("Blue Team", playerteam1.ToString(), true)
-            .AddField("Red Team", playerteam2.ToString(), true);
-
-        await RespondAsync(embed: embed.Build());
-    }
-
-    public static double CalculateDifference(double num1, double num2) => Math.Abs(num1 - num2);
-
-    [SlashCommand("stalk", "Stalk une personne")]
-    public async Task Stalking(string name)
-    {
-        try
-        {
-            LeagueMethod.TempNameRanked = name;
-            await RespondAsync("Stalk", ephemeral: true);
-            await LeagueMethod.StalkingRanked(name);
-
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.ToString());
-        }
-    }
-
-    [SlashCommand("ssr", "Arrete le stalking d'une personne")]
-    public async Task StopStalkingRanked()
-    {
-        try
-        {
-            LeagueMethod.RecursiveRanked = true;
-            await RespondAsync("Stop Stalk", ephemeral: true);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.ToString());
-        }
-    }
-
-    [SlashCommand("stalkaram", "Stalk une personne")]
-    public async Task StalkingAram(string name)
-    {
-        try
-        {
-            LeagueMethod.TempNameAram = name;
-            await RespondAsync("Stalk", ephemeral: true);
-            await LeagueMethod.StalkingAram(name);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.ToString());
-        }
-    }
-
-    [SlashCommand("ssa", "Arrete le stalking d'une personne")]
-    public async Task StopStalkingAram()
-    {
-        try
-        {
-            LeagueMethod.RecursiveAram = true;
-            await RespondAsync("Stop Stalk", ephemeral: true);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.ToString());
-        }
-    }
-
-
     public enum ChampEnumName
     {
         Aatrox = 266,
@@ -326,5 +175,180 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
         Zyra = 143,
         Milio = 902,
         Naafiri = 950
+    }
+
+    public static readonly Dictionary<Tier, string> RankEmblems = new()
+    {
+        { Tier.IRON, "https://cdn.discordapp.com/attachments/787493493927968790/791377379497869353/Emblem_Iron.png" },
+        {
+            Tier.BRONZE,
+            "https://cdn.discordapp.com/attachments/787493493927968790/791377369566281748/Emblem_Bronze.png"
+        },
+        {
+            Tier.SILVER,
+            "https://cdn.discordapp.com/attachments/787493493927968790/791376720967368724/Emblem_Silver.png"
+        },
+        { Tier.GOLD, "https://cdn.discordapp.com/attachments/787493493927968790/791377378962047036/Emblem_Gold.png" },
+        {
+            Tier.PLATINUM,
+            "https://cdn.discordapp.com/attachments/787493493927968790/791377382132547584/Emblem_Platinum.png"
+        },
+        {
+            Tier.DIAMOND,
+            "https://cdn.discordapp.com/attachments/787493493927968790/791377375622725652/Emblem_Diamond.png"
+        },
+        {
+            Tier.MASTER,
+            "https://cdn.discordapp.com/attachments/787493493927968790/791377381713248317/Emblem_Master.png"
+        },
+        {
+            Tier.GRANDMASTER,
+            "https://cdn.discordapp.com/attachments/787493493927968790/791377379607445564/Emblem_Grandmaster.png"
+        },
+        {
+            Tier.CHALLENGER,
+            "https://cdn.discordapp.com/attachments/787493493927968790/791377373044015154/Emblem_Challenger.png"
+        }
+    };
+
+    public static readonly RiotGamesApi Api =
+        RiotGamesApi.NewInstance(
+            "RGAPI-0000000000-000000-000000-000000-000000000000"); //https://developer.riotgames.com
+
+    private InteractionHandler _handler;
+
+    public LeagueCommand(InteractionHandler handler)
+    {
+        _handler = handler;
+    }
+
+    public InteractionService Commands { get; set; }
+
+
+    [SlashCommand("rank", "Check les stats ranked")]
+    public async Task RankCommand(string name)
+    {
+        try
+        {
+            var summs = await Api.SummonerV4().GetBySummonerNameAsync(PlatformRoute.EUW1, name);
+            var leagueentries = await Api.LeagueV4().GetLeagueEntriesForSummonerAsync(PlatformRoute.EUW1, summs.Id);
+            var solo = leagueentries.Single(x => x.QueueType == QueueType.RANKED_SOLO_5x5);
+            var numOfGames = solo.Wins + solo.Losses;
+            var winRate = solo.Wins / (float)numOfGames * 100;
+            var rank = RankEmblems.GetValueOrDefault(solo.Tier.Value, "Unranked");
+
+            var embed = new EmbedBuilder
+            {
+                Title = $"{summs.Name}'s Ranked Stats",
+                Color = Color.Blue,
+                ThumbnailUrl = rank
+            };
+            embed.AddField("Rank", $"{solo.Tier} {solo.Rank}\n {solo.LeaguePoints} LP", true)
+                .AddField("Stats", $"**Wins:** {solo.Wins}\n**Losses**: {solo.Losses}\n**Win Rate:** {winRate}%", true);
+
+            await RespondAsync(embed: embed.Build());
+        }
+        catch (Exception)
+        {
+            await RespondAsync("Le joueur n'a pas fait de ranked", ephemeral: true);
+        }
+    }
+
+
+    [SlashCommand("lg", "Check les stats de la game en cours")]
+    public async Task LiveGame(string name)
+    {
+        var summs = await Api.SummonerV4().GetBySummonerNameAsync(PlatformRoute.EUW1, name);
+        var spect = await Api.SpectatorV4().GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, summs.Id);
+
+        var embed = new EmbedBuilder
+        {
+            Title = $"{summs.Name}'s Live Game",
+            Color = Color.Blue
+        };
+
+        var playerteam1 = new StringBuilder();
+        var playerteam2 = new StringBuilder();
+        string Gamemode = null;
+        if (spect.GameMode is GameMode.ARAM or GameMode.CLASSIC)
+        {
+            Gamemode = spect.GameMode.ToString();
+            foreach (var sp in spect.Participants)
+
+                if (sp.TeamId == Team.Blue)
+                    playerteam1.AppendLine(sp.SummonerName + " " + (ChampEnumName)sp.ChampionId);
+
+                else if (sp.TeamId == Team.Red)
+                    playerteam2.AppendLine(sp.SummonerName + " " + (ChampEnumName)sp.ChampionId);
+        }
+
+        embed.AddField("GameMode", Gamemode)
+            .AddField("Blue Team", playerteam1.ToString(), true)
+            .AddField("Red Team", playerteam2.ToString(), true);
+
+        await RespondAsync(embed: embed.Build());
+    }
+
+    public static double CalculateDifference(double num1, double num2)
+    {
+        return Math.Abs(num1 - num2);
+    }
+
+    [SlashCommand("stalk", "Stalk une personne")]
+    public async Task Stalking(string name)
+    {
+        try
+        {
+            LeagueMethod.TempNameRanked = name;
+            await RespondAsync("Stalk", ephemeral: true);
+            await LeagueMethod.StalkingRanked(name);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
+    }
+
+    [SlashCommand("ssr", "Arrete le stalking d'une personne")]
+    public async Task StopStalkingRanked()
+    {
+        try
+        {
+            LeagueMethod.RecursiveRanked = true;
+            await RespondAsync("Stop Stalk", ephemeral: true);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
+    }
+
+    [SlashCommand("stalkaram", "Stalk une personne")]
+    public async Task StalkingAram(string name)
+    {
+        try
+        {
+            LeagueMethod.TempNameAram = name;
+            await RespondAsync("Stalk", ephemeral: true);
+            await LeagueMethod.StalkingAram(name);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
+    }
+
+    [SlashCommand("ssa", "Arrete le stalking d'une personne")]
+    public async Task StopStalkingAram()
+    {
+        try
+        {
+            LeagueMethod.RecursiveAram = true;
+            await RespondAsync("Stop Stalk", ephemeral: true);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
     }
 }
