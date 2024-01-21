@@ -11,29 +11,28 @@ namespace League_Discord_Bot.Modules;
 internal class LeagueMethod
 {
     public static DiscordWebhookClient Webhook = new("");
-    public static string TempNameRanked;
     public static bool RecursiveRanked = true;
 
 
-    public static string TempNameAram;
+    public static string TempRankedName, TempRankedTagline, TempAramName, TempAramTagline;
     public static bool RecursiveAram = true;
 
-    public static async Task StalkingRanked(string name)
+    public static async Task StalkingRanked(string text, string tagline)
     {
         try
         {
-            var summs = await Api.SummonerV4().GetBySummonerNameAsync(PlatformRoute.EUW1, name);
-            var spect = await Api.SpectatorV4()
-                .GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, summs.Id);
+            var summs = await Api.AccountV1().GetByRiotIdAsync(RegionalRoute.EUROPE, text, tagline);
+            var puuid = await Api.SummonerV4().GetByPUUIDAsync(PlatformRoute.EUW1, summs.Puuid);
+            var spect = await Api.SpectatorV4().GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, puuid.Id);
             var leagueentries = await Api.LeagueV4()
-                .GetLeagueEntriesForSummonerAsync(PlatformRoute.EUW1, summs.Id);
+                .GetLeagueEntriesForSummonerAsync(PlatformRoute.EUW1, puuid.Id);
             var LeagueEntry = leagueentries.Single(x => x.QueueType == QueueType.RANKED_SOLO_5x5);
             var lp = LeagueEntry.LeaguePoints;
 
             while (spect == null)
             {
                 spect = await Api.SpectatorV4()
-                    .GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, summs.Id);
+                    .GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, puuid.Id);
                 Thread.Sleep(10000);
             }
 
@@ -44,7 +43,7 @@ internal class LeagueMethod
                     .GetMatchAsync(RegionalRoute.EUROPE, "EUW1_" + spect.GameId);
                 if (match is not null)
                 {
-                    var participant = match.Info.Participants.Single(x => x.SummonerName == name);
+                    var participant = match.Info.Participants.Single(x => x.SummonerName == text);
                     var winloose = participant.Win;
                     var cs = participant.TotalMinionsKilled;
                     var gold = participant.GoldEarned;
@@ -63,7 +62,7 @@ internal class LeagueMethod
                     Color color;
                     var lpAfterMatch =
                         await Api.LeagueV4()
-                            .GetLeagueEntriesForSummonerAsync(PlatformRoute.EUW1, summs.Id);
+                            .GetLeagueEntriesForSummonerAsync(PlatformRoute.EUW1, puuid.Id);
                     var refreshedLeaguePoint = lpAfterMatch.Single(x => x.QueueType == QueueType.RANKED_SOLO_5x5);
                     var leaguePoints = refreshedLeaguePoint.LeaguePoints;
 
@@ -86,11 +85,11 @@ internal class LeagueMethod
                     var embed = new EmbedBuilder
                     {
                         Title =
-                            $"{summs.Name} vient de {resultat} une ranked en {role}{Environment.NewLine}avec {champ}",
+                            $"{summs.GameName}#{summs.TagLine} vient de {resultat} une ranked en {role}{Environment.NewLine}avec {champ}",
                         Color = color,
                         ThumbnailUrl = rank,
                         Description =
-                            $"{summs.Name} est actuellement {refreshedLeaguePoint.Tier} {refreshedLeaguePoint.Rank} {leaguePoints} LP ({lea})"
+                            $"{summs.GameName}#{summs.TagLine} est actuellement {refreshedLeaguePoint.Tier} {refreshedLeaguePoint.Rank} {leaguePoints} LP ({lea})"
                     };
 
                     var kda = (kill + assist) / (double)death;
@@ -119,7 +118,7 @@ internal class LeagueMethod
 
             if (RecursiveRanked is false) throw new Exception("Stop Recursive Method");
 
-            await StalkingRanked(TempNameRanked);
+            await StalkingRanked(TempRankedName,TempRankedTagline);
         }
         catch (Exception ex)
         {
@@ -127,19 +126,18 @@ internal class LeagueMethod
         }
     }
 
-    public static async Task StalkingAram(string name)
+    public static async Task StalkingAram(string text, string tagline)
     {
         try
         {
-            var summs = await Api.SummonerV4().GetBySummonerNameAsync(PlatformRoute.EUW1, name);
-
-            var spect = await Api.SpectatorV4()
-                .GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, summs.Id);
+            var summs = await Api.AccountV1().GetByRiotIdAsync(RegionalRoute.EUROPE, text, tagline);
+            var puuid = await Api.SummonerV4().GetByPUUIDAsync(PlatformRoute.EUW1, summs.Puuid);
+            var spect = await Api.SpectatorV4().GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, puuid.Id);
 
             while (spect == null)
             {
                 spect = await Api.SpectatorV4()
-                    .GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, summs.Id);
+                    .GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, puuid.Id);
                 Thread.Sleep(15000);
             }
 
@@ -149,7 +147,7 @@ internal class LeagueMethod
                     .GetMatchAsync(RegionalRoute.EUROPE, "EUW1_" + spect.GameId);
                 if (match is not null)
                 {
-                    var participant = match.Info.Participants.Single(x => x.SummonerName == name);
+                    var participant = match.Info.Participants.Single(x => x.SummonerName == text);
                     var winloose = participant.Win;
                     var cs = participant.TotalMinionsKilled;
                     var gold = participant.GoldEarned;
@@ -168,17 +166,17 @@ internal class LeagueMethod
 
                     foreach (var sp in spect.Participants)
                         if (sp.TeamId == Team.Blue)
-                            teamBlue.AppendLine(sp.SummonerName + " " + (ChampEnumName)sp.ChampionId);
+                            teamBlue.AppendLine(sp.SummonerName + " " + GetDescription(sp.ChampionId));
                         else if (sp.TeamId == Team.Red)
-                            teamRed.AppendLine(sp.SummonerName + " " + (ChampEnumName)sp.ChampionId);
+                            teamRed.AppendLine(sp.SummonerName + " " + GetDescription(sp.ChampionId));
 
                     var embed = new EmbedBuilder
                     {
                         Title =
-                            $"{summs.Name} vient de {resultat} une ARAM {Environment.NewLine}avec {champ}",
+                            $"{summs.GameName}#{summs.TagLine} vient de {resultat} une ARAM {Environment.NewLine}avec {champ}",
                         Color = Color.Blue,
                         ThumbnailUrl =
-                            $"http://ddragon.leagueoflegends.com/cdn/13.1.1/img/profileicon/{summs.ProfileIconId}.png"
+                            $"http://ddragon.leagueoflegends.com/cdn/14.1/img/profileicon/{puuid.ProfileIconId}.png"
                     };
 
                     var kda = (kill + assist) / (double)death;
@@ -209,7 +207,7 @@ internal class LeagueMethod
 
             if (RecursiveAram is false) throw new Exception("Stop Recursive Method");
 
-            await StalkingAram(TempNameAram);
+            await StalkingAram(TempAramName,TempAramTagline);
         }
         catch (Exception ex)
         {
