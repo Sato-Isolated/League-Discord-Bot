@@ -67,13 +67,4 @@ internal class Program
         Console.WriteLine(message.ToString());
         return Task.CompletedTask;
     }
-
-    public static bool IsDebug()
-    {
-#if DEBUG
-        return true;
-#else
-                return false;
-#endif
-    }
 }
