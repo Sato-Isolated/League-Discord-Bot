@@ -152,7 +152,6 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
                     {
                         properties.Content = $"{nbgame} / {nbentries}";
                     });
-                    await Task.Delay(1000);
                     if (gameAlreadyCheck.Contains(spect))
                     {
                         continue;
@@ -182,15 +181,15 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
                         {
                             Champ = champ,
                             Game = 1,
-                            WinRate = winloose ? 100 : 0,
+                            WinRate = (winloose ? 100 : 0).ToString() + "%",
                             Win = winloose ? 1 : 0,
                             Loose = winloose ? 0 : 1,
                             FirstBlood = firstBlood ? 1 : 0,
-                            KDA = death == 0 ? kill + assist : (kill + assist) / (double)death,
+                            KDA = Convert.ToDouble((death == 0 ? kill + assist : (kill + assist) / (double)death).ToString("F1")),
                             Kill = kill,
                             Death = death,
                             Assist = assist,
-                            DPM = dpm,
+                            DPM = Convert.ToDouble(dpm.ToString("F1")),
                             DoubleKill = dk,
                             TripleKill = tk,
                             QuadraKill = qk,
@@ -209,7 +208,7 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
 
                             var numOfGames = oldStats.Win + oldStats.Loose;
                             var winRate = oldStats.Win / (float)numOfGames * 100;
-                            oldStats.WinRate = Convert.ToDouble(winRate.ToString("F1"));
+                            oldStats.WinRate = winRate.ToString("F1") + "%";
 
                             if (firstBlood is true)
                                 oldStats.FirstBlood += 1;
@@ -238,11 +237,32 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
             }
 
             await File.WriteAllLinesAsync(spectFile, gameAlreadyCheck);
-
+            var orderedStats = stats.OrderByDescending(s => s.Game).ThenByDescending(s => s.KDA).ToList();
+            int totalWins = orderedStats.Sum(s => s.Win);
+            int totalLooses = orderedStats.Sum(s => s.Loose);
+            int totalGames = totalWins + totalLooses;
+            double totalWinRate = totalGames > 0 ? (double)totalWins / totalGames * 100 : 0;
+            var totalStat = new GameStats()
+            {
+                Champ = "Total",
+                Game = stats.Sum(s => s.Game),
+                WinRate = $"{totalWinRate:F1}%",
+                Win = stats.Sum(s => s.Win),
+                Loose = stats.Sum(s => s.Loose),
+                FirstBlood = stats.Sum(s => s.FirstBlood),
+                Kill = stats.Sum(s => s.Kill),
+                Death = stats.Sum(s => s.Death),
+                Assist = stats.Sum(s => s.Assist),
+                DoubleKill = stats.Sum(s => s.DoubleKill),
+                TripleKill = stats.Sum(s => s.TripleKill),
+                QuadraKill = stats.Sum(s => s.QuadraKill),
+                PentaKill = stats.Sum(s => s.PentaKill),
+            };
+            orderedStats.Add(totalStat);
             using (var writer = new StreamWriter(FilePath))
             using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
             {
-                await csv.WriteRecordsAsync(stats);
+                await csv.WriteRecordsAsync(orderedStats);
             }
             await ModifyOriginalResponseAsync(properties =>
             {
@@ -258,11 +278,11 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
         }
     }
 
-    public class GameStats
+    private class GameStats
     {
         public string Champ { get; set; }
         public int Game { get; set; }
-        public double WinRate { get; set; }
+        public string WinRate { get; set; }
         public int Win { get; set; }
         public int Loose { get; set; }
         public int FirstBlood { get; set; }
