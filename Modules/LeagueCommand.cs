@@ -162,13 +162,13 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
                         var gameMatch = Path.Combine(pathFolder, $"{spect}.json");
                         await File.WriteAllTextAsync(gameMatch, JsonConvert.SerializeObject(match));
 
-                        var participant = match.Info.Participants.Single(x => x.RiotIdGameName == text);
+                        var participant = match.Info.Participants.Single(x => x.Puuid == puuid.Puuid);
                         var winloose = participant.Win;
                         var firstBlood = participant.FirstBloodKill;
                         var kill = participant.Kills;
                         var death = participant.Deaths;
                         var assist = participant.Assists;
-                        var champ = participant.ChampionName;
+                        var champ = GetDescription(participant.ChampionId);
                         var damage = participant.TotalDamageDealtToChampions;
                         var duration = TimeSpan.FromSeconds(match.Info.GameDuration);
                         var dpm = (double)damage / duration.Minutes;
