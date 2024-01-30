@@ -1,14 +1,17 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
+using System.Drawing;
 using System.Globalization;
 using System.Reflection;
 using System.Text;
 using Camille.Enums;
 using Camille.RiotGames;
 using Camille.RiotGames.Enums;
-using CsvHelper;
 using Discord;
 using Discord.Interactions;
 using Newtonsoft.Json;
+using OfficeOpenXml;
+using OfficeOpenXml.Style;
+using Color = System.Drawing.Color;
 
 namespace League_Discord_Bot.Modules;
 
@@ -81,7 +84,7 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
             var embed = new EmbedBuilder
             {
                 Title = $"{summs.GameName}#{summs.TagLine}'s Ranked Stats",
-                Color = Color.Blue,
+                Color = Discord.Color.Blue,
                 ThumbnailUrl = rank
             };
 
@@ -107,128 +110,281 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
                ?? string.Empty;
     }
 
-    [SlashCommand("makecsv", "blablabla csv aram")]
-    public async Task makecsv(string text, string tagline)
+    private static string FormatDuration(TimeSpan duration)
+    {
+        return $"{duration.Minutes:D2}:{duration.Seconds:D2}";
+    }
+
+    private static double CalculateKda(int kills, int deaths, int assists)
+    {
+        var kda = deaths == 0 ? kills + assists : (kills + assists) / (double)deaths;
+        return Math.Round(kda, 2);
+    }
+
+    private static void UpdateExistingStats(GameStats existingStat, GameStats newStat,
+        string formattedDuration)
+    {
+        existingStat.Game += 1;
+        existingStat.Win += newStat.Win;
+        existingStat.Loose += newStat.Loose;
+        var numOfGames = existingStat.Win + existingStat.Loose;
+        existingStat.WinRate = (existingStat.Win / (float)numOfGames * 100).ToString("F1") + "%";
+
+        existingStat.FirstBlood += newStat.FirstBlood;
+        existingStat.Kill += newStat.Kill;
+        existingStat.Death += newStat.Death;
+        existingStat.Assist += newStat.Assist;
+
+        existingStat.Kda = CalculateKda(existingStat.Kill, existingStat.Death, existingStat.Assist);
+        existingStat.DoubleKill += newStat.DoubleKill;
+        existingStat.TripleKill += newStat.TripleKill;
+        existingStat.QuadraKill += newStat.QuadraKill;
+        existingStat.PentaKill += newStat.PentaKill;
+        existingStat.Dpm =
+            ((Convert.ToDouble(existingStat.Dpm) * (existingStat.Game - 1) + Convert.ToDouble(newStat.Dpm)) /
+             existingStat.Game).ToString("F2");
+        UpdateDuration(existingStat, formattedDuration);
+    }
+
+
+    private GameStats GetStatistiquesFromWorksheet(ExcelWorksheet worksheet, int row)
+    {
+        return new GameStats
+        {
+            Champ = worksheet.Cells[row, 1].Value?.ToString() ?? "null",
+            Game = TryConvertToInt32(worksheet.Cells[row, 2].Value),
+            WinRate = worksheet.Cells[row, 3].Value?.ToString() ?? "0%",
+            Win = TryConvertToInt32(worksheet.Cells[row, 4].Value),
+            Loose = TryConvertToInt32(worksheet.Cells[row, 5].Value),
+            FirstBlood = TryConvertToInt32(worksheet.Cells[row, 6].Value),
+            Kda = TryConvertToDouble(worksheet.Cells[row, 7].Value),
+            Kill = TryConvertToInt32(worksheet.Cells[row, 8].Value),
+            Death = TryConvertToInt32(worksheet.Cells[row, 9].Value),
+            Assist = TryConvertToInt32(worksheet.Cells[row, 10].Value),
+            DoubleKill = TryConvertToInt32(worksheet.Cells[row, 11].Value),
+            TripleKill = TryConvertToInt32(worksheet.Cells[row, 12].Value),
+            QuadraKill = TryConvertToInt32(worksheet.Cells[row, 13].Value),
+            PentaKill = TryConvertToInt32(worksheet.Cells[row, 14].Value),
+            Dpm = worksheet.Cells[row, 15].Value?.ToString() ?? "0",
+            DurationAvg = worksheet.Cells[row, 16].Value?.ToString() ?? "00:00"
+        };
+    }
+
+    private static int TryConvertToInt32(object value)
+    {
+        return int.TryParse(value?.ToString(), out var result) ? result : 0;
+    }
+
+    private static double TryConvertToDouble(object value)
+    {
+        return double.TryParse(value?.ToString(), out var result) ? result : 0.0;
+    }
+
+    private static string GenerateProgressBar(double percentage)
+    {
+        const int progressBarWidth = 20;
+        var completedWidth = (int)(progressBarWidth * percentage / 100);
+        var remainingWidth = progressBarWidth - completedWidth;
+
+        return "[" + new string('█', completedWidth) + new string('░', remainingWidth) + "] " +
+               percentage.ToString("F2") + "%";
+    }
+
+    private static void UpdateDuration(GameStats stat, string formattedDuration)
+    {
+        if (TimeSpan.TryParseExact(formattedDuration, @"mm\:ss", CultureInfo.InvariantCulture, out var currentDuration))
+        {
+            if (TimeSpan.TryParseExact(stat.DurationAvg, @"mm\:ss", CultureInfo.InvariantCulture,
+                    out var existingDuration))
+            {
+                var totalDuration = new TimeSpan(0, 0,
+                    (int)(existingDuration.TotalSeconds * (stat.Game - 1)) + (int)currentDuration.TotalSeconds);
+                var averageDuration = new TimeSpan(0, 0, (int)(totalDuration.TotalSeconds / stat.Game));
+                stat.DurationAvg = averageDuration.ToString(@"mm\:ss");
+            }
+            else
+            {
+                Console.WriteLine("Error: Invalid format for 'stat.Duration'.");
+            }
+        }
+        else
+        {
+            Console.WriteLine("Error: Invalid format for 'formattedDuration'.");
+        }
+    }
+
+    private static int DurationToSeconds(string duration)
+    {
+        if (TimeSpan.TryParseExact(duration, @"mm\:ss", CultureInfo.InvariantCulture, out var timespan))
+        {
+            return (int)timespan.TotalSeconds;
+        }
+
+        return 0;
+    }
+
+    private static double ParseDpm(string dpm)
+    {
+        if (double.TryParse(dpm, out var result))
+        {
+            return result;
+        }
+
+        return 0;
+    }
+
+    [SlashCommand("makeexcel", "blablabla excel file")]
+    public async Task MakeExcel(string username, string tagline)
     {
         try
         {
-            await RespondAsync("Preparation", ephemeral: true);
-            var summs = await Api.AccountV1().GetByRiotIdAsync(RegionalRoute.EUROPE, text, tagline);
+            ExcelPackage.LicenseContext = OfficeOpenXml.LicenseContext.NonCommercial;
+            await RespondAsync("Preparing", ephemeral: true);
+            var summs = await Api.AccountV1().GetByRiotIdAsync(RegionalRoute.EUROPE, username, tagline);
             var puuid = await Api.SummonerV4().GetByPUUIDAsync(PlatformRoute.EUW1, summs.Puuid);
 
-            DateTime starttime = new DateTime(2023, 12, 31);
-            DateTime endtime = new DateTime(2024, 1, 1);
-            DateTime endtimefinal = DateTime.Today;
-            var FilePath = $"{text}.csv";
-            var stats = new List<GameStats>();
 
-            var pathFolder = Path.Combine("Game", text);
+            var folderBase = Path.Combine("Game", username);
 
-            Directory.CreateDirectory(pathFolder);
+            Directory.CreateDirectory(folderBase);
+            var pathFile =
+                Path.Combine(Environment.CurrentDirectory,
+                    $"{username}.xlsx");
+            var statistics = new List<GameStats>();
+
             var nbgame = 0;
-            var spectFile = Path.Combine(pathFolder, "games.txt");
-            var gameAlreadyCheck = File.Exists(spectFile) ? (await File.ReadAllLinesAsync(spectFile)).ToList() : new List<string>();
+            var fileSpect = Path.Combine(folderBase, "games.txt");
+            var gamesalreadyplayed = File.Exists(fileSpect)
+                ? (await File.ReadAllLinesAsync(fileSpect)).ToList()
+                : [];
             var nbentries = 0;
+            var alreadycheck = 0;
+            string message;
+
+            if (File.Exists(pathFile))
+            {
+                using (var package = new ExcelPackage(new FileInfo(pathFile)))
+                {
+                    var worksheet = package.Workbook.Worksheets.FirstOrDefault();
+                    if (worksheet != null)
+                    {
+                        var rowCount = worksheet.Dimension.Rows;
+                        for (var row = 2; row <= rowCount; row++)
+                        {
+                            var statistique = GetStatistiquesFromWorksheet(worksheet, row);
+                            statistics.Add(statistique);
+                        }
+                    }
+
+                    statistics.RemoveAll(s => s.Champ == "Total");
+
+                    worksheet?.Cells.AutoFitColumns();
+                }
+            }
+
+            var pathFileDate = Path.Combine(folderBase, "lastDate.txt");
+            DateTime starttime;
+            if (File.Exists(pathFileDate))
+            {
+                var dateLastExecuted = await File.ReadAllTextAsync(pathFileDate);
+                starttime = DateTime.Parse(dateLastExecuted);
+            }
+            else
+            {
+                starttime = new DateTime(2024, 1, 10); // start season 14
+            }
+
+            var endtime = starttime.AddDays(1);
+            var endtimefinal = DateTime.Today;
+            var totalDays = (endtimefinal - starttime).TotalDays;
             while (starttime <= endtimefinal)
             {
-                long starttamp = ((DateTimeOffset)starttime.ToUniversalTime()).ToUnixTimeSeconds();
-                long endtamp = ((DateTimeOffset)endtime.ToUniversalTime()).ToUnixTimeSeconds();
-                var leagueentries = await Api.MatchV5().GetMatchIdsByPUUIDAsync(RegionalRoute.EUROPE, puuid.Puuid, 100, endtamp, Queue.HOWLING_ABYSS_5V5_ARAM, starttamp);
+                var starttamp = ((DateTimeOffset)starttime.ToUniversalTime()).ToUnixTimeSeconds();
+                var endtamp = ((DateTimeOffset)endtime.ToUniversalTime()).ToUnixTimeSeconds();
+                var leagueentries = await Api.MatchV5().GetMatchIdsByPUUIDAsync(RegionalRoute.EUROPE, puuid.Puuid,
+                    100,
+                    endtamp, Queue.HOWLING_ABYSS_5V5_ARAM, starttamp);
                 nbentries += leagueentries.Length;
-        
-                if (File.Exists(FilePath))
+                var remainingDays = (endtimefinal - starttime).TotalDays;
+
+                var progressPercentage = 100 - remainingDays / totalDays * 100;
+
+                var progressBar = GenerateProgressBar(progressPercentage);
+                foreach (var game in gamesalreadyplayed)
                 {
-                    using (var reader = new StreamReader(FilePath))
-                    using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
+                    if (leagueentries.Contains(game))
                     {
-                        stats = csv.GetRecords<GameStats>().ToList();
+                        nbentries--;
                     }
                 }
 
                 foreach (var spect in leagueentries)
                 {
-                    nbgame += 1;
-                    await ModifyOriginalResponseAsync(properties =>
-                    {
-                        properties.Content = $"{nbgame} / {nbentries}";
-                    });
-                    if (gameAlreadyCheck.Contains(spect))
+                    await Task.Delay(125);
+
+                    if (gamesalreadyplayed.Contains(spect))
                     {
                         continue;
                     }
+
                     var match = await Api.MatchV5().GetMatchAsync(RegionalRoute.EUROPE, spect);
+
+
                     if (match is not null)
                     {
-                        var gameMatch = Path.Combine(pathFolder, $"{spect}.json");
-                        await File.WriteAllTextAsync(gameMatch, JsonConvert.SerializeObject(match));
-
                         var participant = match.Info.Participants.Single(x => x.Puuid == puuid.Puuid);
-                        var winloose = participant.Win;
-                        var firstBlood = participant.FirstBloodKill;
-                        var kill = participant.Kills;
-                        var death = participant.Deaths;
-                        var assist = participant.Assists;
-                        var champ = GetDescription(participant.ChampionId);
-                        var damage = participant.TotalDamageDealtToChampions;
-                        var duration = TimeSpan.FromSeconds(match.Info.GameDuration);
-                        var dpm = (double)damage / duration.Minutes;
-                        var dk = participant.DoubleKills;
-                        var tk = participant.TripleKills;
-                        var qk = participant.QuadraKills;
-                        var pk = participant.PentaKills;
 
-                        var newStats = new GameStats
+                        if (participant.GameEndedInEarlySurrender)
+                        {
+                            nbentries--;
+                            message =
+                                $"Number Of Game {nbgame} / {nbentries}\n\nNumber Of Game AlreadyChecked {alreadycheck++}\n\n{progressBar}";
+                            await ModifyOriginalResponseAsync(properties => { properties.Content = message; });
+                            continue;
+                        }
+
+                        message = $"Number Of Game {nbgame++} / {nbentries}\n\n{progressBar}";
+                        await ModifyOriginalResponseAsync(properties => { properties.Content = message; });
+
+                        var fileMatch = Path.Combine(folderBase, $"{spect}.json");
+                        await File.WriteAllTextAsync(fileMatch, JsonConvert.SerializeObject(match));
+
+                        var champ = GetDescription(participant.ChampionId);
+                        var duration = TimeSpan.FromSeconds(match.Info.GameDuration);
+                        var formattedDuration = FormatDuration(duration);
+                        var damagePerMinute = participant.Challenges?.DamagePerMinute ?? 0.0;
+                        var newStatistics = new GameStats
                         {
                             Champ = champ,
                             Game = 1,
-                            WinRate = (winloose ? 100 : 0).ToString() + "%",
-                            Win = winloose ? 1 : 0,
-                            Loose = winloose ? 0 : 1,
-                            FirstBlood = firstBlood ? 1 : 0,
-                            KDA = Convert.ToDouble((death == 0 ? kill + assist : (kill + assist) / (double)death).ToString("F1")),
-                            Kill = kill,
-                            Death = death,
-                            Assist = assist,
-                            DPM = Convert.ToDouble(dpm.ToString("F1")),
-                            DoubleKill = dk,
-                            TripleKill = tk,
-                            QuadraKill = qk,
-                            PentaKill = pk
+                            WinRate = (participant.Win ? 100 : 0) + "%",
+                            Win = participant.Win ? 1 : 0,
+                            Loose = participant.Win ? 0 : 1,
+                            FirstBlood = participant.FirstBloodKill ? 1 : 0,
+                            Kda = CalculateKda(participant.Kills, participant.Deaths, participant.Assists),
+                            Kill = participant.Kills,
+                            Death = participant.Deaths,
+                            Assist = participant.Assists,
+                            DoubleKill = participant.DoubleKills,
+                            TripleKill = participant.TripleKills,
+                            QuadraKill = participant.QuadraKills,
+                            PentaKill = participant.PentaKills,
+                            Dpm = damagePerMinute.ToString("F2"),
+                            DurationAvg = formattedDuration
                         };
 
-                        var oldStats = stats.FirstOrDefault(s => s.Champ == newStats.Champ);
-                        if (oldStats != null)
+                        var statExisting =
+                            statistics.FirstOrDefault(s => s.Champ == newStatistics.Champ);
+                        if (statExisting != null)
                         {
-                            oldStats.Game += 1;
-
-                            if (winloose)
-                                oldStats.Win += 1;
-                            else
-                                oldStats.Loose += 1;
-
-                            var numOfGames = oldStats.Win + oldStats.Loose;
-                            var winRate = oldStats.Win / (float)numOfGames * 100;
-                            oldStats.WinRate = winRate.ToString("F1") + "%";
-
-                            if (firstBlood is true)
-                                oldStats.FirstBlood += 1;
-
-                            oldStats.Kill += kill;
-                            oldStats.Death += death;
-                            oldStats.Assist += assist;
-                            var kda = (oldStats.Kill + oldStats.Assist) / (double)oldStats.Death;
-                            oldStats.KDA = Convert.ToDouble(kda.ToString("F1"));
-                            oldStats.DPM = Convert.ToDouble(((oldStats.DPM * (oldStats.Game - 1) + dpm) / oldStats.Game).ToString("F1"));
-                            oldStats.DoubleKill += dk;
-                            oldStats.TripleKill += tk;
-                            oldStats.QuadraKill += qk;
-                            oldStats.PentaKill += pk;
+                            UpdateExistingStats(statExisting, newStatistics, formattedDuration);
                         }
                         else
                         {
-                            stats.Add(newStats);
+                            statistics.Add(newStatistics);
                         }
-                        gameAlreadyCheck.Add(spect);
+
+                        gamesalreadyplayed.Add(spect);
                     }
                 }
 
@@ -236,48 +392,158 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
                 endtime = endtime.AddDays(1);
             }
 
-            await File.WriteAllLinesAsync(spectFile, gameAlreadyCheck);
-            var orderedStats = stats.OrderByDescending(s => s.Game).ThenByDescending(s => s.KDA).ToList();
-            int totalWins = orderedStats.Sum(s => s.Win);
-            int totalLooses = orderedStats.Sum(s => s.Loose);
-            int totalGames = totalWins + totalLooses;
-            double totalWinRate = totalGames > 0 ? (double)totalWins / totalGames * 100 : 0;
-            var totalStat = new GameStats()
+            message = $"Number Of Game {nbgame} / {nbentries}\n\n{GenerateProgressBar(100)}";
+            await ModifyOriginalResponseAsync(properties => { properties.Content = message; });
+            var statisticsSorted = statistics.OrderByDescending(s => s.Game)
+                .ThenByDescending(s => s.Kda).ToList();
+            var totalWins = statisticsSorted.Sum(s => s.Win);
+            var totalLooses = statisticsSorted.Sum(s => s.Loose);
+            var totalGames = totalWins + totalLooses;
+            var totalWinRate = totalGames > 0 ? (double)totalWins / totalGames * 100 : 0;
+            var totalkda = CalculateKda(statisticsSorted.Sum(s => s.Kill), statisticsSorted.Sum(s => s.Death),
+                statisticsSorted.Sum(s => s.Assist));
+            var totalDurationInSeconds = statistics.Sum(s => DurationToSeconds(s.DurationAvg) * s.Game);
+
+            var averageDurationInSeconds = totalGames > 0 ? totalDurationInSeconds / totalGames : 0;
+
+            var averageDurationTimespan = TimeSpan.FromSeconds(averageDurationInSeconds);
+            var formattedAverageDuration = averageDurationTimespan.ToString(@"mm\:ss");
+            var totalWeightedDpm = statistics.Sum(s => ParseDpm(s.Dpm) * DurationToSeconds(s.DurationAvg) * s.Game);
+
+            var averageDpm = totalDurationInSeconds > 0 ? totalWeightedDpm / totalDurationInSeconds : 0;
+
+
+            var totalStat = new GameStats
             {
                 Champ = "Total",
-                Game = stats.Sum(s => s.Game),
+                Game = statistics.Sum(s => s.Game),
                 WinRate = $"{totalWinRate:F1}%",
-                Win = stats.Sum(s => s.Win),
-                Loose = stats.Sum(s => s.Loose),
-                FirstBlood = stats.Sum(s => s.FirstBlood),
-                Kill = stats.Sum(s => s.Kill),
-                Death = stats.Sum(s => s.Death),
-                Assist = stats.Sum(s => s.Assist),
-                DoubleKill = stats.Sum(s => s.DoubleKill),
-                TripleKill = stats.Sum(s => s.TripleKill),
-                QuadraKill = stats.Sum(s => s.QuadraKill),
-                PentaKill = stats.Sum(s => s.PentaKill),
+                Win = statistics.Sum(s => s.Win),
+                Loose = statistics.Sum(s => s.Loose),
+                FirstBlood = statistics.Sum(s => s.FirstBlood),
+                Kda = totalkda,
+                Kill = statistics.Sum(s => s.Kill),
+                Death = statistics.Sum(s => s.Death),
+                Assist = statistics.Sum(s => s.Assist),
+                DoubleKill = statistics.Sum(s => s.DoubleKill),
+                TripleKill = statistics.Sum(s => s.TripleKill),
+                QuadraKill = statistics.Sum(s => s.QuadraKill),
+                PentaKill = statistics.Sum(s => s.PentaKill),
+                Dpm = averageDpm.ToString("F2"),
+                DurationAvg = formattedAverageDuration
+                //AllInPings = statistics.Sum(s => s.AllInPings),
+                //AssistMePings = statistics.Sum(s => s.AssistMePings),
+                //BaitPings = statistics.Sum(s => s.BaitPings),
+                //BasicPings = statistics.Sum(s => s.BasicPings),
+                //CommandPings = statistics.Sum(s => s.CommandPings),
+                //DangerPings = statistics.Sum(s => s.DangerPings),
+                //EnemyMissingPings = statistics.Sum(s => s.EnemyMissingPings),
+                //EnemyVisionPings = statistics.Sum(s => s.EnemyVisionPings),
+                //GetBackPings = statistics.Sum(s => s.GetBackPings),
+                //HoldPings = statistics.Sum(s => s.HoldPings),
+                //NeedVisionPings = statistics.Sum(s => s.NeedVisionPings),
+                //OnMyWayPings = statistics.Sum(s => s.OnMyWayPings),
+                //VisionClearedPings = statistics.Sum(s => s.VisionClearedPings),
+                //PushPings = statistics.Sum(s => s.PushPings)
             };
-            orderedStats.Add(totalStat);
-            using (var writer = new StreamWriter(FilePath))
-            using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
+            statisticsSorted.Add(totalStat);
+
+            const int nombreColonnes = 16;
+
+            void ApplyBorderStyle(ExcelRange range)
             {
-                await csv.WriteRecordsAsync(orderedStats);
+                range.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+                range.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+                range.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+                range.Style.Border.Right.Style = ExcelBorderStyle.Thin;
             }
-            await ModifyOriginalResponseAsync(properties =>
+
+            void ApplyStyleFill(ExcelRange range, Color couleur)
             {
-                properties.Content = "Finish";
-            });
+                range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                range.Style.Fill.BackgroundColor.SetColor(couleur);
+            }
+
+            using (var package = new ExcelPackage(new FileInfo(pathFile)))
+            {
+                var worksheet = package.Workbook.Worksheets["Statistiques"] ??
+                                package.Workbook.Worksheets.Add("Statistiques");
+                worksheet.Cells.Clear();
+                worksheet.Cells.LoadFromCollection(statisticsSorted, true);
+                var rowCount = worksheet.Dimension.Rows - 1;
+
+                var baseColor = Color.White;
+                var alternateColor = ColorTranslator.FromHtml("#ddf2f0");
+
+                for (var row = 1; row <= rowCount + 1; row++)
+                {
+                    using (var range = worksheet.Cells[row, 1, row, nombreColonnes])
+                    {
+                        if (row == 1)
+                        {
+                            ApplyBorderStyle(range);
+                            ApplyStyleFill(range, ColorTranslator.FromHtml("#26a69a"));
+                            range.Style.Font.Bold = true;
+                            range.Style.Font.Color.SetColor(Color.White);
+                            continue;
+                        }
+
+                        var isRowEmpty = range.Any(c => !string.IsNullOrWhiteSpace(c.Text));
+                        if (!isRowEmpty)
+                        {
+                            continue;
+                        }
+
+                        ApplyBorderStyle(range);
+                        var color = row % 2 == 0 ? baseColor : alternateColor;
+                        ApplyStyleFill(range, color);
+                        range.Style.Font.Size = 12;
+                        range.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                    }
+                }
+
+                using (var totalRange = worksheet.Cells[rowCount + 1, 1, rowCount + 1, nombreColonnes])
+                {
+                    ApplyBorderStyle(totalRange);
+                    ApplyStyleFill(totalRange,
+                        ColorTranslator.FromHtml("#8cd3cd"));
+                    totalRange.Style.Font.Color.SetColor(Color.White);
+                    totalRange.Style.Font.Bold = true;
+                }
+
+                worksheet.Cells.AutoFitColumns();
+                await package.SaveAsync();
+            }
+
+            message += "\nFinish";
+
+            await File.WriteAllLinesAsync(fileSpect, gamesalreadyplayed);
+            var todayDate = DateTime.Today.ToString("yyyy-MM-dd");
+            await File.WriteAllTextAsync(pathFileDate, todayDate);
+            using (var fileStream = File.OpenRead(pathFile))
+            {
+                var memoryStream = new MemoryStream();
+                await fileStream.CopyToAsync(memoryStream);
+
+                memoryStream.Position = 0;
+                var fileAttachment = new FileAttachment(memoryStream, $"{username}.xlsx");
+                await ModifyOriginalResponseAsync(properties =>
+                {
+                    properties.Content = message;
+                    properties.Attachments = new[] { fileAttachment };
+                    properties.Flags = MessageFlags.None;
+                });
+                await memoryStream.DisposeAsync();
+            }
         }
         catch (Exception ex)
         {
             await ModifyOriginalResponseAsync(properties =>
             {
-                properties.Content =  ex.ToString();
+                properties.Content = ex.ToString();
             });
         }
     }
-
     private class GameStats
     {
         public string Champ { get; set; }
@@ -286,7 +552,7 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
         public int Win { get; set; }
         public int Loose { get; set; }
         public int FirstBlood { get; set; }
-        public double KDA { get; set; }
+        public double Kda { get; set; }
         public int Kill { get; set; }
         public int Death { get; set; }
         public int Assist { get; set; }
@@ -294,8 +560,23 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
         public int TripleKill { get; set; }
         public int QuadraKill { get; set; }
         public int PentaKill { get; set; }
+        public string Dpm { get; set; }
+        public string DurationAvg { get; set; }
 
-        public double DPM { get; set; }
+        //public int? AllInPings { get; set; }
+        //public int? AssistMePings { get; set; }
+        //public int? BaitPings { get; set; }
+        //public int? BasicPings { get; set; }
+        //public int? CommandPings { get; set; }
+        //public int? DangerPings { get; set; }
+        //public int? EnemyMissingPings { get; set; }
+        //public int? EnemyVisionPings { get; set; }
+        //public int? GetBackPings { get; set; }
+        //public int? HoldPings { get; set; }
+        //public int? NeedVisionPings { get; set; }
+        //public int? OnMyWayPings { get; set; }
+        //public int? VisionClearedPings { get; set; }
+        //public int? PushPings { get; set; }
     }
 
     [SlashCommand("lg", "Check les stats de la game en cours")]
@@ -310,7 +591,7 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
             var embed = new EmbedBuilder
             {
                 Title = $"{puuid.Name}'s Live Game",
-                Color = Color.Blue
+                Color = Discord.Color.Blue
             };
 
             var playerteam1 = new StringBuilder();
