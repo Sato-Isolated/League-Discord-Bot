@@ -19,15 +19,11 @@ if you have an idea for a function make an issue and I will see what I can do
 
 ![Screenshot_1](https://user-images.githubusercontent.com/12450341/214114945-eb72810d-cfc6-43c4-966e-feee7b99d9c0.png)
 
-here's a preview of the MakeExcel function that will replace MakeCsv
+Command : /makeexcel (username) BIPBIP (tagline) euw or 12453 (this is what's after your #)
+![Animation4](https://github.com/Sato-Isolated/League-Discord-Bot/assets/12450341/ab1fe721-1284-4d91-88b3-3fa3174c3d96)
+![Sans titre](https://github.com/Sato-Isolated/League-Discord-Bot/assets/12450341/ed17f87a-c2de-4cd7-b8c3-71744273aa30)
+![image](https://github.com/Sato-Isolated/League-Discord-Bot/assets/12450341/a67a442f-ecbc-43c6-b3e5-e281db7d9003)
 
-I still have a few things to fix and then I'll push the method.
-
-then maybe I'll try to make graphs with the stats
-
-like the number of times an item has been used with a champion etc.
-
-![image](https://github.com/Sato-Isolated/League-Discord-Bot/assets/12450341/ccfd761d-afc8-4ac2-8339-25570c45a164)
 
 
 for the bot to work you must put your token for the bot discord in program.cs 
@@ -35,5 +31,6 @@ for the bot to work you must put your token for the bot discord in program.cs
 your Server ID in InteractionHandler.cs
 
 your webhook in LeagueMethod.cs
+
 
 and your riot api key in LeagueCommand.cs
