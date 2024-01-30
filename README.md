@@ -19,6 +19,17 @@ if you have an idea for a function make an issue and I will see what I can do
 
 ![Screenshot_1](https://user-images.githubusercontent.com/12450341/214114945-eb72810d-cfc6-43c4-966e-feee7b99d9c0.png)
 
+here's a preview of the MakeExcel function that will replace MakeCsv
+
+I still have a few things to fix and then I'll push the method.
+
+then maybe I'll try to make graphs with the stats
+
+like the number of times an item has been used with a champion etc.
+
+![image](https://github.com/Sato-Isolated/League-Discord-Bot/assets/12450341/ccfd761d-afc8-4ac2-8339-25570c45a164)
+
+
 for the bot to work you must put your token for the bot discord in program.cs 
 
 your Server ID in InteractionHandler.cs
