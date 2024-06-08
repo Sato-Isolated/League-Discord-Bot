@@ -23,7 +23,7 @@ internal class LeagueMethod
         {
             var summs = await Api.AccountV1().GetByRiotIdAsync(RegionalRoute.EUROPE, text, tagline);
             var puuid = await Api.SummonerV4().GetByPUUIDAsync(PlatformRoute.EUW1, summs.Puuid);
-            var spect = await Api.SpectatorV4().GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, puuid.Id);
+            var spect = await Api.SpectatorV5().GetCurrentGameInfoByPuuidAsync(PlatformRoute.EUW1, puuid.Id);
             var leagueentries = await Api.LeagueV4()
                 .GetLeagueEntriesForSummonerAsync(PlatformRoute.EUW1, puuid.Id);
             var LeagueEntry = leagueentries.Single(x => x.QueueType == QueueType.RANKED_SOLO_5x5);
@@ -31,8 +31,8 @@ internal class LeagueMethod
 
             while (spect == null)
             {
-                spect = await Api.SpectatorV4()
-                    .GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, puuid.Id);
+                spect = await Api.SpectatorV5()
+                    .GetCurrentGameInfoByPuuidAsync(PlatformRoute.EUW1, puuid.Id);
                 Thread.Sleep(10000);
             }
 
@@ -132,12 +132,12 @@ internal class LeagueMethod
         {
             var summs = await Api.AccountV1().GetByRiotIdAsync(RegionalRoute.EUROPE, text, tagline);
             var puuid = await Api.SummonerV4().GetByPUUIDAsync(PlatformRoute.EUW1, summs.Puuid);
-            var spect = await Api.SpectatorV4().GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, puuid.Id);
+            var spect = await Api.SpectatorV5().GetCurrentGameInfoByPuuidAsync(PlatformRoute.EUW1, puuid.Id);
 
             while (spect == null)
             {
-                spect = await Api.SpectatorV4()
-                    .GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, puuid.Id);
+                spect = await Api.SpectatorV5()
+                    .GetCurrentGameInfoByPuuidAsync(PlatformRoute.EUW1, puuid.Id);
                 Thread.Sleep(15000);
             }
 
@@ -166,9 +166,9 @@ internal class LeagueMethod
 
                     foreach (var sp in spect.Participants)
                         if (sp.TeamId == Team.Blue)
-                            teamBlue.AppendLine(sp.SummonerName + " " + GetDescription(sp.ChampionId));
+                            teamBlue.AppendLine(sp.SummonerId + " " + GetDescription(sp.ChampionId));
                         else if (sp.TeamId == Team.Red)
-                            teamRed.AppendLine(sp.SummonerName + " " + GetDescription(sp.ChampionId));
+                            teamRed.AppendLine(sp.SummonerId + " " + GetDescription(sp.ChampionId));
 
                     var embed = new EmbedBuilder
                     {

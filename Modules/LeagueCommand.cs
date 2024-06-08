@@ -586,11 +586,11 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
         {
             var summs = await Api.AccountV1().GetByRiotIdAsync(RegionalRoute.EUROPE, text, tagline);
             var puuid = await Api.SummonerV4().GetByPUUIDAsync(PlatformRoute.EUW1, summs.Puuid);
-            var spect = await Api.SpectatorV4().GetCurrentGameInfoBySummonerAsync(PlatformRoute.EUW1, puuid.Id);
+            var spect = await Api.SpectatorV5().GetCurrentGameInfoByPuuidAsync(PlatformRoute.EUW1, puuid.Id);
 
             var embed = new EmbedBuilder
             {
-                Title = $"{puuid.Name}'s Live Game",
+                Title = $"{puuid.AccountId}'s Live Game",
                 Color = Discord.Color.Blue
             };
 
@@ -603,10 +603,10 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
                 foreach (var sp in spect.Participants)
 
                     if (sp.TeamId == Team.Blue)
-                        playerteam1.AppendLine(sp.SummonerName + " - " + GetDescription(sp.ChampionId));
+                        playerteam1.AppendLine(sp.SummonerId + " - " + GetDescription(sp.ChampionId));
 
                     else if (sp.TeamId == Team.Red)
-                        playerteam2.AppendLine(sp.SummonerName + " - " + GetDescription(sp.ChampionId));
+                        playerteam2.AppendLine(sp.SummonerId + " - " + GetDescription(sp.ChampionId));
             }
 
             embed.AddField("GameMode", gamemode)
