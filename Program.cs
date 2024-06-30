@@ -3,6 +3,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Serilog;
 
 namespace League_Discord_Bot;
 
@@ -34,11 +35,30 @@ internal class Program
             .BuildServiceProvider();
     }
 
-    private static void Main(string[] args)
+    private static void Main()
     {
-        new Program().RunAsync()
-            .GetAwaiter()
-            .GetResult();
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Debug()
+            .WriteTo.Console()
+            .WriteTo.File("logs/log-.log", rollingInterval: RollingInterval.Day)
+            .CreateLogger();
+
+        try
+        {
+            Log.Information("Starting up");
+            new Program().RunAsync()
+                .GetAwaiter()
+                .GetResult();
+        }
+        catch (Exception ex)
+        {
+            Log.Fatal(ex, "Application start-up failed");
+        }
+        finally
+        {
+            Log.CloseAndFlush();
+        }
+
     }
 
     private async Task RunAsync()
