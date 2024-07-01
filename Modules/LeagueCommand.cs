@@ -280,11 +280,8 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
                 Log.Information("Completed match processing for user {Username}", username);
 
                 worksheetMain.Cells.AutoFitColumns();
-                //   ApplyDarkThemeToAllWorksheets(package);
 
-                // Add charts to each champion sheet
-                AddChartsToChampionSheets(package, championData);
-
+                AddVBA(package);
                 await package.SaveAsync();
             }
 
@@ -423,99 +420,6 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
         Log.Debug("Added match {MatchId} to already processed games", spect);
     }
 
-    private void AddChartsToChampionSheets(ExcelPackage package, Dictionary<string, int> championData)
-    {
-        foreach (var champ in championData.Keys)
-        {
-            var champSheet = package.Workbook.Worksheets[champ];
-            if (champSheet != null)
-            {
-                var lastRow = championData[champ];
-                if (lastRow > 1) // Ensure there are at least two rows of data to plot
-                {
-                    AddChartToSheet(champSheet, lastRow);
-                }
-            }
-        }
-
-        // Add VBA code
-        AddVBA(package);
-    }
-
-
-    private void AddChartToSheet(ExcelWorksheet sheet, int lastRow)
-    {
-        var chart = sheet.Drawings.AddChart("PerformanceChart", eChartType.Line);
-        chart.Title.Text = "Performance Metrics";
-        chart.SetPosition(1, 0, 16, 0); // Position chart to the right of the data
-        chart.SetSize(800, 400); // Size of the chart
-
-        // Customize chart area
-        chart.Border.LineStyle = eLineStyle.Solid;
-        chart.Border.Fill.Color = Color.Gray;
-        chart.Fill.Color = Color.FromArgb(240, 240, 240);
-
-        // Customize plot area
-        chart.PlotArea.Border.LineStyle = eLineStyle.Solid;
-        chart.PlotArea.Border.Fill.Color = Color.Gray;
-        chart.PlotArea.Fill.Color = Color.FromArgb(220, 220, 220);
-
-        // Customize title
-        chart.Title.Font.Size = 14;
-        chart.Title.Font.Bold = true;
-        chart.Title.Font.Color = Color.DarkBlue;
-
-        // Customize axes
-        chart.XAxis.Title.Text = "Game Number";
-        chart.XAxis.Title.Font.Size = 12;
-        chart.XAxis.Title.Font.Bold = true;
-        chart.XAxis.Title.Font.Color = Color.DarkBlue;
-        chart.YAxis.Title.Text = "Count";
-        chart.YAxis.Title.Font.Size = 12;
-        chart.YAxis.Title.Font.Bold = true;
-        chart.YAxis.Title.Font.Color = Color.DarkBlue;
-
-        // Add data series with improved visuals
-        var winLossSeries = chart.Series.Add(sheet.Cells[2, 2, lastRow, 2], sheet.Cells[2, 1, lastRow, 1]); // Win/Loss data
-        winLossSeries.Header = "Win/Loss";
-        winLossSeries.Border.LineStyle = eLineStyle.Solid;
-        winLossSeries.Border.Fill.Color = Color.Blue;
-        winLossSeries.Border.Width = 2;
-
-        var killSeries = chart.Series.Add(sheet.Cells[2, 6, lastRow, 6], sheet.Cells[2, 1, lastRow, 1]); // Kill data
-        killSeries.Header = "Kills";
-        killSeries.Border.LineStyle = eLineStyle.Solid;
-        killSeries.Border.Fill.Color = Color.Green;
-        killSeries.Border.Width = 2;
-
-        var deathSeries = chart.Series.Add(sheet.Cells[2, 7, lastRow, 7], sheet.Cells[2, 1, lastRow, 1]); // Death data
-        deathSeries.Header = "Deaths";
-        deathSeries.Border.LineStyle = eLineStyle.Solid;
-        deathSeries.Border.Fill.Color = Color.Red;
-        deathSeries.Border.Width = 2;
-
-        var assistSeries = chart.Series.Add(sheet.Cells[2, 8, lastRow, 8], sheet.Cells[2, 1, lastRow, 1]); // Assist data
-        assistSeries.Header = "Assists";
-        assistSeries.Border.LineStyle = eLineStyle.Solid;
-        assistSeries.Border.Fill.Color = Color.Purple;
-        assistSeries.Border.Width = 2;
-
-        // Add a legend
-        chart.Legend.Position = eLegendPosition.Bottom;
-        chart.Legend.Border.LineStyle = eLineStyle.Solid;
-        chart.Legend.Border.Fill.Color = Color.Gray;
-        chart.Legend.Font.Size = 10;
-
-        // Adjust the chart style for better visibility
-        chart.Style = eChartStyle.Style26;
-        chart.DisplayBlanksAs = eDisplayBlanksAs.Gap;
-        chart.YAxis.MinValue = 0;
-
-        // Format the gridlines
-        chart.XAxis.MajorGridlines.Fill.Color = Color.LightGray;
-        chart.YAxis.MajorGridlines.Fill.Color = Color.LightGray;
-    }
-
 
     private void AddVBA(ExcelPackage package)
     {
@@ -526,10 +430,210 @@ public class LeagueCommand : InteractionModuleBase<SocketInteractionContext>
         }
 
         var vbaProject = workbook.VbaProject;
-        var module = vbaProject.Modules.AddModule("ApplyDarkThemeModule");
+        var module = vbaProject.Modules.AddModule("GenerateChartsModule");
 
-        // VBA code to apply dark theme and customize charts
         string vbaCode = @"
+Sub GenerateAllChartsForAllSheets()
+    Dim ws As Worksheet
+    Dim chart As ChartObject
+    Dim lastRow As Long
+    Dim cell As Range
+    Dim totalWins As Long
+    Dim totalLosses As Long
+    Dim winRate As Double
+    Dim wordArt As Shape
+    Dim hyperlinkCell As Range
+
+    ' Loop through all worksheets
+    For Each ws In ThisWorkbook.Worksheets
+        If ws.Name <> ""Statistiques"" Then
+            ' Determine the last row with data in column A
+            lastRow = ws.Cells(ws.Rows.Count, ""A"").End(xlUp).Row
+            
+            ' Ensure DPM column is treated as numbers
+            For Each cell In ws.Range(""M2:M"" & lastRow)
+                cell.Value = CDbl(cell.Value)
+            Next cell
+            
+            ' Add the Kill chart
+            Set chart = ws.ChartObjects.Add(0, 0, 600, 400)
+            With chart
+                ' Position the chart in columns O to W and rows 0 to 20
+                .Left = ws.Cells(1, 15).Left
+                .Top = ws.Cells(1, 15).Top
+                .Width = ws.Range(""O1:W1"").Width
+                .Height = ws.Range(""A1:A20"").Height
+                With .Chart
+                    .ChartType = xlLine
+                    .SetSourceData Source:=Union(ws.Range(""A1:A"" & lastRow), ws.Range(""F1:F"" & lastRow))
+                    .HasTitle = True
+                    .ChartTitle.Text = ""Kills Metrics""
+                    .ChartTitle.Font.Size = 14
+                    .ChartTitle.Font.Bold = True
+                    .Axes(xlCategory, xlPrimary).HasTitle = True
+                    .Axes(xlCategory, xlPrimary).AxisTitle.Text = ""Game Number""
+                    .Axes(xlCategory, xlPrimary).AxisTitle.Font.Size = 12
+                    .Axes(xlCategory, xlPrimary).AxisTitle.Font.Bold = True
+                    .Axes(xlValue, xlPrimary).HasTitle = True
+                    .Axes(xlValue, xlPrimary).AxisTitle.Text = ""Kills""
+                    .Axes(xlValue, xlPrimary).AxisTitle.Font.Size = 12
+                    .Axes(xlValue, xlPrimary).AxisTitle.Font.Bold = True
+                    .Axes(xlValue, xlPrimary).MinimumScale = 0 ' Set Y-axis to start from zero
+                    .ChartStyle = 236 ' Set the chart style to style number 10
+                    With .SeriesCollection(1)
+                        .Name = ""Kills""
+                        .XValues = ws.Range(""A2:A"" & lastRow) ' Set X-axis values to Game Numbers
+                        .Values = ws.Range(""F2:F"" & lastRow) ' Set Y-axis values to Kills
+                        .Format.Line.Weight = 2.5
+                        .MarkerStyle = xlMarkerStyleCircle
+                        .MarkerSize = 8
+                    End With
+                End With
+            End With
+            
+            ' Add the Death chart
+            Set chart = ws.ChartObjects.Add(0, 0, 600, 400)
+            With chart
+                ' Position the chart in columns X to AF and rows 0 to 20
+                .Left = ws.Cells(1, 24).Left
+                .Top = ws.Cells(1, 24).Top
+                .Width = ws.Range(""X1:AF1"").Width
+                .Height = ws.Range(""A1:A20"").Height
+                With .Chart
+                    .ChartType = xlLine
+                    .SetSourceData Source:=Union(ws.Range(""A1:A"" & lastRow), ws.Range(""G1:G"" & lastRow))
+                    .HasTitle = True
+                    .ChartTitle.Text = ""Deaths Metrics""
+                    .ChartTitle.Font.Size = 14
+                    .ChartTitle.Font.Bold = True
+                    .Axes(xlCategory, xlPrimary).HasTitle = True
+                    .Axes(xlCategory, xlPrimary).AxisTitle.Text = ""Game Number""
+                    .Axes(xlCategory, xlPrimary).AxisTitle.Font.Size = 12
+                    .Axes(xlCategory, xlPrimary).AxisTitle.Font.Bold = True
+                    .Axes(xlValue, xlPrimary).HasTitle = True
+                    .Axes(xlValue, xlPrimary).AxisTitle.Text = ""Deaths""
+                    .Axes(xlValue, xlPrimary).AxisTitle.Font.Size = 12
+                    .Axes(xlValue, xlPrimary).AxisTitle.Font.Bold = True
+                    .Axes(xlValue, xlPrimary).MinimumScale = 0 ' Set Y-axis to start from zero
+                    .ChartStyle = 236 ' Set the chart style to style number 10
+                    With .SeriesCollection(1)
+                        .Name = ""Deaths""
+                        .XValues = ws.Range(""A2:A"" & lastRow) ' Set X-axis values to Game Numbers
+                        .Values = ws.Range(""G2:G"" & lastRow) ' Set Y-axis values to Deaths
+                        .Format.Line.Weight = 2.5
+                        .MarkerStyle = xlMarkerStyleCircle
+                        .MarkerSize = 8
+                    End With
+                End With
+            End With
+            
+            ' Add the Assist chart
+            Set chart = ws.ChartObjects.Add(0, 0, 600, 400)
+            With chart
+                ' Position the chart in columns O to W and rows 21 to 41
+                .Left = ws.Cells(21, 15).Left
+                .Top = ws.Cells(21, 15).Top
+                .Width = ws.Range(""O21:W21"").Width
+                .Height = ws.Range(""A21:A41"").Height
+                With .Chart
+                    .ChartType = xlLine
+                    .SetSourceData Source:=Union(ws.Range(""A1:A"" & lastRow), ws.Range(""H1:H"" & lastRow))
+                    .HasTitle = True
+                    .ChartTitle.Text = ""Assists Metrics""
+                    .ChartTitle.Font.Size = 14
+                    .ChartTitle.Font.Bold = True
+                    .Axes(xlCategory, xlPrimary).HasTitle = True
+                    .Axes(xlCategory, xlPrimary).AxisTitle.Text = ""Game Number""
+                    .Axes(xlCategory, xlPrimary).AxisTitle.Font.Size = 12
+                    .Axes(xlCategory, xlPrimary).AxisTitle.Font.Bold = True
+                    .Axes(xlValue, xlPrimary).HasTitle = True
+                    .Axes(xlValue, xlPrimary).AxisTitle.Text = ""Assists""
+                    .Axes(xlValue, xlPrimary).AxisTitle.Font.Size = 12
+                    .Axes(xlValue, xlPrimary).AxisTitle.Font.Bold = True
+                    .Axes(xlValue, xlPrimary).MinimumScale = 0 ' Set Y-axis to start from zero
+                    .ChartStyle = 236 ' Set the chart style to style number 10
+                    With .SeriesCollection(1)
+                        .Name = ""Assists""
+                        .XValues = ws.Range(""A2:A"" & lastRow) ' Set X-axis values to Game Numbers
+                        .Values = ws.Range(""H2:H"" & lastRow) ' Set Y-axis values to Assists
+                        .Format.Line.Weight = 2.5
+                        .MarkerStyle = xlMarkerStyleCircle
+                        .MarkerSize = 8
+                    End With
+                End With
+            End With
+            
+            ' Add the DPM chart
+            Set chart = ws.ChartObjects.Add(0, 0, 600, 400)
+            With chart
+                ' Position the chart in columns X to AF and rows 21 to 41
+                .Left = ws.Cells(21, 24).Left
+                .Top = ws.Cells(21, 24).Top
+                .Width = ws.Range(""X21:AF21"").Width
+                .Height = ws.Range(""A21:A41"").Height
+                With .Chart
+                    .ChartType = xlLine
+                    .SetSourceData Source:=Union(ws.Range(""A1:A"" & lastRow), ws.Range(""M1:M"" & lastRow))
+                    .HasTitle = True
+                    .ChartTitle.Text = ""DPM Metrics""
+                    .ChartTitle.Font.Size = 14
+                    .ChartTitle.Font.Bold = True
+                    .Axes(xlCategory, xlPrimary).HasTitle = True
+                    .Axes(xlCategory, xlPrimary).AxisTitle.Text = ""Game Number""
+                    .Axes(xlCategory, xlPrimary).AxisTitle.Font.Size = 12
+                    .Axes(xlCategory, xlPrimary).AxisTitle.Font.Bold = True
+                    .Axes(xlValue, xlPrimary).HasTitle = True
+                    .Axes(xlValue, xlPrimary).AxisTitle.Text = ""DPM""
+                    .Axes(xlValue, xlPrimary).AxisTitle.Font.Size = 12
+                    .Axes(xlValue, xlPrimary).AxisTitle.Font.Bold = True
+                    .Axes(xlValue, xlPrimary).MinimumScale = 0 ' Set Y-axis to start from zero
+                    .ChartStyle = 236 ' Set the chart style to style number 10
+                    With .SeriesCollection(1)
+                        .Name = ""DPM""
+                        .XValues = ws.Range(""A2:A"" & lastRow) ' Set X-axis values to Game Numbers
+                        .Values = ws.Range(""M2:M"" & lastRow) ' Set Y-axis values to DPM
+                        .Format.Line.Weight = 2.5
+                        .MarkerStyle = xlMarkerStyleCircle
+                        .MarkerSize = 8
+                    End With
+                End With
+            End With
+            
+            ' Calculate total wins and losses
+            totalWins = Application.WorksheetFunction.Sum(ws.Range(""B2:B"" & lastRow))
+            totalLosses = Application.WorksheetFunction.Sum(ws.Range(""C2:C"" & lastRow))
+            
+            ' Calculate win rate
+            If totalWins + totalLosses > 0 Then
+                winRate = (totalWins / (totalWins + totalLosses)) * 100
+            Else
+                winRate = 0
+            End If
+            
+            ' Add the Win Rate WordArt
+            Set wordArt = ws.Shapes.AddTextEffect(msoTextEffect1, ""Winrate: "" & Format(winRate, ""0.00"") & ""%"", ""Arial Black"", 36, msoFalse, msoFalse, ws.Cells(42, 15).Left, ws.Cells(42, 15).Top)
+            With wordArt
+                .Height = ws.Range(""A42:A62"").Height
+                .Width = ws.Range(""O42:W42"").Width
+                .TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(0, 102, 204)
+                .TextFrame2.TextRange.Font.Bold = msoTrue
+                .LockAspectRatio = msoFalse
+            End With
+            
+            ' Add hyperlink to ""Statistiques"" sheet in cell X42
+            Set hyperlinkCell = ws.Cells(42, 24)
+            ws.Hyperlinks.Add Anchor:=hyperlinkCell, Address:="""", SubAddress:=""Statistiques!A1"", TextToDisplay:=""Go to Statistiques""
+            With hyperlinkCell.Font
+                .Size = 14
+                .Bold = True
+                .Color = RGB(0, 102, 204)
+            End With
+        End If
+    Next ws
+End Sub
+
+
+
 Sub ApplyDarkTheme()
     Dim ws As Worksheet
     Dim rng As Range
@@ -538,21 +642,20 @@ Sub ApplyDarkTheme()
     Dim bufferRows As Long
     Dim bufferCols As Long
     
-    bufferRows = 50
-    bufferCols = 20
+    bufferRows = 67
+    bufferCols = 33
     
     For Each ws In ThisWorkbook.Worksheets
         lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
         lastCol = ws.Cells(1, ws.Columns.Count).End(xlToLeft).Column
 
-        ' Apply dark theme to the range
         Set rng = ws.Range(ws.Cells(1, 1), ws.Cells(WorksheetFunction.Min(lastRow + bufferRows, 1000), WorksheetFunction.Min(lastCol + bufferCols, 50)))
         With rng.Interior
             .Pattern = xlSolid
-            .Color = RGB(43, 43, 43) ' Dark gray background
+            .Color = RGB(43, 43, 43)
         End With
         With rng.Font
-            .Color = RGB(220, 220, 220) ' Light gray font
+            .Color = RGB(220, 220, 220)
         End With
         With rng.Borders(xlEdgeLeft)
             .LineStyle = xlContinuous
@@ -571,71 +674,31 @@ Sub ApplyDarkTheme()
             .Color = RGB(0, 0, 0)
         End With
 
-        ' Apply dark theme to header row
         Set rng = ws.Range(ws.Cells(1, 1), ws.Cells(1, lastCol))
         With rng.Interior
             .Pattern = xlSolid
-            .Color = RGB(55, 55, 55) ' Slightly lighter gray for header
+            .Color = RGB(55, 55, 55)
         End With
         With rng.Font
-            .Color = RGB(255, 255, 255) ' White font
+            .Color = RGB(255, 255, 255)
             .Bold = True
         End With
     Next ws
 End Sub
 
-Sub CustomizeCharts()
-    Dim ws As Worksheet
-    Dim ch As ChartObject
-    For Each ws In ThisWorkbook.Worksheets
-        For Each ch In ws.ChartObjects
-            With ch.Chart
-                .ChartStyle = 201 ' Custom style for better visuals
-                .Axes(xlCategory).MajorGridlines.Format.Line.ForeColor.RGB = RGB(200, 200, 200)
-                .Axes(xlValue).MajorGridlines.Format.Line.ForeColor.RGB = RGB(200, 200, 200)
-                .SetElement (msoElementChartTitleCenteredOverlay)
-                .Axes(xlCategory).HasTitle = True
-                .Axes(xlCategory).AxisTitle.Text = ""Game Number""
-                .Axes(xlValue).HasTitle = True
-                .Axes(xlValue).AxisTitle.Text = ""Count""
-                
-                ' Customize the series
-                With .SeriesCollection(1)
-                    .Format.Line.ForeColor.RGB = RGB(0, 112, 192) ' Change line color
-                    .MarkerStyle = xlMarkerStyleCircle
-                    .MarkerSize = 8
-                    .MarkerBackgroundColor = RGB(0, 112, 192)
-                    .MarkerForegroundColor = RGB(255, 255, 255)
-                    .HasTrendlines = True
-                    .Trendlines(1).Type = xlMovingAvg
-                    .Trendlines(1).Period = 2
-                End With
-                
-                With .SeriesCollection(2)
-                    .Format.Line.ForeColor.RGB = RGB(0, 176, 80) ' Change line color
-                    .MarkerStyle = xlMarkerStyleSquare
-                    .MarkerSize = 8
-                    .MarkerBackgroundColor = RGB(0, 176, 80)
-                    .MarkerForegroundColor = RGB(255, 255, 255)
-                    .HasTrendlines = True
-                    .Trendlines(1).Type = xlExponential
-                End With
-                
-                ' Add more series customization if needed
-                
-            End With
-        Next ch
-    Next ws
-End Sub
 
 ";
         module.Code = vbaCode;
 
-        // Add event to run VBA on workbook open
         workbook.CodeModule.Code = @"
+
+Private Sub Workbook_SheetActivate(ByVal Sh As Object)
+    ActiveWindow.Zoom = 85
+End Sub
+
 Private Sub Workbook_Open()
     Call ApplyDarkTheme
-    Call CustomizeCharts
+    Call GenerateAllChartsForAllSheets
 End Sub
 ";
     }
